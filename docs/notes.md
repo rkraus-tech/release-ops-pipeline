@@ -28,3 +28,16 @@
 - Solution: corrected the line to `nohook resolv.conf`, wrote `/etc/resolv.conf` manually (`search home.arpa`, `nameserver 192.168.2.1`), verified after reboot.
 - Lesson: always verify config changes after a reboot, and check the actual file content instead of assuming a command worked.
 
+## Phase 3 – Jenkins & sample app
+- Installed `openjdk-21-jre-headless` + `fontconfig` before Jenkins: current Jenkins LTS requires Java 21+; headless JRE because the server only runs Java and has no GUI; fontconfig is needed by Jenkins for rendering graphs.
+- Added the official Jenkins LTS apt repository (`debian-stable`) with a dedicated keyring (`signed-by=/etc/apt/keyrings/jenkins-keyring.asc`) so the key is trusted only for this source. LTS instead of weekly for stability.
+- `Ign: ... InRelease` during `apt update` is expected: the Jenkins repo provides `Release` + `Release.gpg` instead of `InRelease`; signature verified (no NO_PUBKEY).
+- Jenkins runs as systemd service under the unprivileged `jenkins` user (least privilege), listening on port 8080. Note: Jenkins logs in UTC, systemd in local time.
+- Unlocked with the one-time `initialAdminPassword`, installed suggested plugins (Pipeline, Git, Credentials, Timestamper, ...), created a personal admin account instead of the default `admin`.
+- Installed nginx as deploy target, plus `curl` (HTTP checks) and `jq` (JSON parsing for the health check) – both missing in the minimal install.
+- Release layout: `/opt/release-app/releases/<version>/` + symlink `/opt/release-app/current`. Switching the symlink is atomic; rollback = pointing the symlink back. Directory owned by `jenkins`, so deployments need no sudo.
+- nginx site `release-app`: root `/opt/release-app/current`, `/health` serves `health.json` with `Cache-Control: no-store`, dedicated access/error logs (input for the Python log scanner). Disabled the default site, validated with `nginx -t`, applied with `reload` (no dropped connections).
+- Expected `404` before the first release confirmed the new config was active.
+- Sample app in `/app`: `VERSION` (single source of truth), `index.html` and `health.json` with placeholders (`__VERSION__`, `__BUILD__`, `__BUILT_AT__`) that the build stamps.
+- Files written via `[IO.File]::WriteAllText` because Windows PowerShell 5.1 `Set-Content -Encoding utf8` adds a BOM, which breaks JSON parsing with `jq`.
+

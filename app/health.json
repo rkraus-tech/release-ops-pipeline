@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "app": "release-app",
+  "version": "__VERSION__",
+  "build": "__BUILD__",
+  "built_at": "__BUILT_AT__"
+}

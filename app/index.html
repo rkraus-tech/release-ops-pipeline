@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>release-app __VERSION__</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0;
+           display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { background: #1e293b; padding: 2rem 3rem; border-radius: 12px; text-align: center; }
+    .version { font-size: 3rem; font-weight: 700; color: #38bdf8; margin: .5rem 0; }
+    .meta { color: #94a3b8; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div>release-app on ops01</div>
+    <div class="version">v__VERSION__</div>
+    <div class="meta">Build #__BUILD__ &middot; built __BUILT_AT__</div>
+  </div>
+</body>
+</html>
