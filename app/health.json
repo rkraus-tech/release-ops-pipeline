@@ -1,5 +1,5 @@
 {
-  "status": "ok",
+  "status": "degraded",
   "app": "release-app",
   "version": "__VERSION__",
   "build": "__BUILD__",
