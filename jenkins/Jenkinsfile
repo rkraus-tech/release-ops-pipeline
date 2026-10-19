@@ -1,7 +1,7 @@
 // Jenkinsfile - CI/CD pipeline for release-app on ops01
 //
-// ACTION = deploy   : lint -> build -> archive -> deploy (with health check + auto rollback)
-// ACTION = rollback : lint -> switch back to an older release
+// ACTION = deploy   : lint -> test -> build -> archive -> deploy (health check + auto rollback)
+// ACTION = rollback : lint -> test -> switch back to an older release
 //
 // Exit codes of scripts/deploy.sh:
 //   0 success | 1 error before any change | 2 failed, rolled back | 3 CRITICAL
@@ -53,6 +53,13 @@ pipeline {
                     bash -n scripts/*.sh
                     shellcheck scripts/*.sh
                 '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                // Unit tests of the Python log scanner (standard library only, no pip needed)
+                sh 'python3 -m unittest discover -s python/tests -v'
             }
         }
 
