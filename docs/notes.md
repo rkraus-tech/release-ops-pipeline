@@ -41,3 +41,20 @@
 - Sample app in `/app`: `VERSION` (single source of truth), `index.html` and `health.json` with placeholders (`__VERSION__`, `__BUILD__`, `__BUILT_AT__`) that the build stamps.
 - Files written via `[IO.File]::WriteAllText` because Windows PowerShell 5.1 `Set-Content -Encoding utf8` adds a BOM, which breaks JSON parsing with `jq`.
 
+## Phase 4 – Build, deploy & rollback scripts (Bash)
+- Split into `build.sh` (package once) and `deploy.sh` (deploy that exact artifact) – "build once, deploy many".
+- `build.sh`: reads `app/VERSION`, build number from argument or Jenkins `BUILD_NUMBER`, release id `<version>-b<build>` (unique per build). Stamps placeholders with `sed` in a temp staging dir (cleaned up via `trap ... EXIT`). Quality gates: fails on leftover placeholders or invalid JSON (`jq empty`). Produces `tar.gz` + `.sha256`. Logs to stderr, artifact path to stdout (machine-readable for Jenkins).
+- `deploy.sh deploy|rollback|status`, all scripts use `set -Eeuo pipefail`.
+- Deploy flow: `flock` lock (no parallel deploys) -> checksum verification -> unpack into `<id>.tmp` and rename (no half-unpacked releases) -> normalize permissions (`chmod -R u=rwX,go=rX`, never trust artifact permissions) -> atomic symlink switch (`ln -sfn` + `mv -T`) -> health check -> cleanup (keep 5 newest).
+- Health check verifies that `/health` reports `status=ok` AND the expected version and build number – "responds" is not enough, it must be the right release. 5 attempts, 2 s apart.
+- Automatic rollback when the health check fails: switch back to the previous release, verify it, mark the bad one as `<id>.failed` (kept for analysis, never offered as rollback target).
+- Exit codes for Jenkins: 0 success, 1 error before any change, 2 failed but rolled back, 3 critical (rollback failed too).
+- Logs with timestamp + level to stderr and `/var/log/release-app/deploy.log` (owned by `jenkins`).
+- Optional `record-deploy.sh` hook for the database (Phase 5); recording errors only produce a warning and never fail a deployment.
+- Git on Windows does not store the executable bit -> `git update-index --chmod=+x scripts/*.sh`, verified with `git ls-files -s` (mode 100755).
+- Tested on `ops01` as the `jenkins` user (`sudo -u jenkins`) to reproduce the exact permissions Jenkins will have. Installed `git` on the VM (needed later by Jenkins).
+- Test results: 1.0.0-b1 and 1.1.0-b2 deployed without nginx restart; intentionally broken 1.1.0-b3 (`"status": "degraded"`) was detected and rolled back automatically in 10 s (exit code 2); manual rollback 1.1.0-b2 -> 1.0.0-b1 in < 1 s.
+
+### Challenge: wrong terminal
+- Ran `sed` in the local Windows PowerShell instead of the SSH session -> `CommandNotFoundException`. Harmless, but it would have modified the real repo file. Lesson: always check the prompt (`PS C:\...` = local, `robert@ops01` = server) before running commands.
+
