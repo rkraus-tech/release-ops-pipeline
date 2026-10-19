@@ -73,3 +73,22 @@
 - `git pull` on ops01 did not bring the new SQL files -> `psql: No such file or directory`. `git status` on the ThinkPad showed "ahead of 'origin/main' by 1 commit": the commit existed locally but was never pushed.
 - Lesson: after every push, check for "up to date with 'origin/main'". Rule of thumb: push on the workstation, pull on the server.
 
+## Phase 6 – Jenkins pipeline
+- Declarative pipeline as code in `jenkins/Jenkinsfile` (versioned, reviewable, restorable). Job `release-app` = "Pipeline script from SCM" (Git, branch `*/main`, script path `jenkins/Jenkinsfile`, no credentials – public repo).
+- Stages: Lint (`bash -n` + ShellCheck) -> Build (`build.sh $BUILD_NUMBER`) -> Archive (artifact + sha256, fingerprinted) -> Deploy (`deploy.sh deploy`) | Rollback (`deploy.sh rollback`). `post { always }` prints `deploy.sh status`.
+- Options: `disableConcurrentBuilds`, `timestamps`, 15 min timeout, keep last 30 builds.
+- Parameters: `ACTION` (deploy/rollback), `ROLLBACK_TO` (empty = previous release). Exit codes of deploy.sh are translated into clear build descriptions and errors (exit 2 = "FAILED - automatically rolled back", exit 3 = "CRITICAL").
+- Trigger decision: Poll SCM (`H/2 * * * *`) instead of a GitHub webhook – a webhook would require exposing the build server to the internet; polling only needs outbound connections. In a company network an internal Git server would send webhooks.
+- Pitfall: parameters and triggers from a Jenkinsfile are only registered after the first run ("Build Now" first, then "Build with Parameters" appears).
+- Go-live preparation: Jenkins build numbers start at 1 and would collide with the manual test releases -> removed test releases, `TRUNCATE deploy_history RESTART IDENTITY` (only possible as DB admin), emptied deploy.log.
+- End-to-end test:
+  - #1 initial deploy 1.0.0-b1 (manual start)
+  - #2 commit "release: 1.1.0" -> started automatically by SCM change -> 1.1.0-b2 live (5.4 s)
+  - #3 faulty commit (health status "degraded") -> deploy failed, automatic rollback to 1.1.0-b2, build red, users never saw the broken version
+  - #4 fix via `git revert` (new commit, honest history; no history rewrite on shared branches) -> 1.1.0-b4 live
+  - #5 manual rollback via "Build with Parameters" -> back to 1.1.0-b2 (failed b3 skipped as rollback target)
+
+### Challenge: commits not pushed
+- Polling log showed "already built by 1" – the remote head had not changed because the commit was only local.
+- Fix: always run `git push` + `git status` ("up to date with 'origin/main'") after committing. The Jenkins "Git Polling Log" is the place to check what Jenkins actually sees.
+
