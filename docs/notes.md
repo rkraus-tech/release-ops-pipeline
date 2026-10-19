@@ -58,3 +58,18 @@
 ### Challenge: wrong terminal
 - Ran `sed` in the local Windows PowerShell instead of the SSH session -> `CommandNotFoundException`. Harmless, but it would have modified the real repo file. Lesson: always check the prompt (`PS C:\...` = local, `robert@ops01` = server) before running commands.
 
+## Phase 5 – Deploy history in PostgreSQL
+- Installed PostgreSQL 17 (Debian default). Listens only on 127.0.0.1/::1 (not reachable from the LAN). `postgresql.service` shows `active (exited)` by design – it is an umbrella unit for `postgresql@17-main`.
+- Decision: peer authentication over the local Unix socket instead of passwords. The Linux user `jenkins` logs in as DB role `jenkins` – no secret exists that could leak. Debian initializes clusters with `--auth-local peer` already. For a remote/central DB, password auth with the password stored in Jenkins Credentials would be used instead (never in scripts or the repo).
+- Role concept (least privilege, group-based): `deploy_writer` (INSERT + SELECT) and `deploy_reader` (SELECT only) as NOLOGIN group roles; login roles `jenkins` (writer) and `robert` (reader). `REVOKE ALL ON DATABASE releases FROM PUBLIC`, CONNECT only for the two groups.
+- Table `deploy_history`: id (identity), deployed_at (timestamptz), action, release_id, version, status, duration_s, previous_release, triggered_by (default `current_user`, cannot be faked with peer auth), build_url. CHECK constraints reject invalid action/status values and negative durations. Index on deployed_at.
+- Append-only audit log: nobody except the owner may UPDATE or DELETE. Verified with `\dp` (`deploy_writer=ar`, `deploy_reader=r`) and a failed INSERT as `robert` (permission denied).
+- Schema scripts run with `psql -X -v ON_ERROR_STOP=1`; table creation wrapped in BEGIN/COMMIT.
+- `scripts/record-deploy.sh`: hook called by `deploy.sh`. Values passed as psql variables (`:'var'`) -> safe against SQL injection (tested with `'; DROP TABLE x;--`). `PGCONNECT_TIMEOUT=5`, Jenkins `BUILD_URL` stored when available. DB errors only cause a warning in `deploy.sh`.
+- `sql/reports.sql`: last 10 deployments, success rate (30 days), average/max duration per action and status, currently live release.
+- Test: rollback to 1.1.0-b2, deploy 1.0.0-b4, intentionally broken 1.0.0-b5 (auto rollback, status `rolled_back`, 10 s) – all three recorded automatically.
+
+### Challenge: commit not pushed
+- `git pull` on ops01 did not bring the new SQL files -> `psql: No such file or directory`. `git status` on the ThinkPad showed "ahead of 'origin/main' by 1 commit": the commit existed locally but was never pushed.
+- Lesson: after every push, check for "up to date with 'origin/main'". Rule of thumb: push on the workstation, pull on the server.
+
