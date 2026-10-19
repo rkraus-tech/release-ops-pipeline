@@ -203,36 +203,45 @@ release-ops-pipeline/
 ### Deploy & rollback (Bash)
 
 ![First release](screenshots/05-app-v1.0.0.png)
+
 *First release served by nginx via the `current` symlink.*
 
 ![Automatic rollback](screenshots/06-auto-rollback.png)
+
 *Broken release: five failed health checks, automatic rollback to the previous release, exit code 2.*
 
 ### Deploy history (SQL)
 
 ![Deploy history report](screenshots/07-deploy-history-report.png)
+
 *`sql/reports.sql`: last deployments, success rate, durations and the currently live release.*
 
 ### Jenkins pipeline
 
 ![Triggered by SCM change](screenshots/08-jenkins-scm-trigger.png)
+
 *Build #2 started automatically by the commit `release: 1.1.0` – artifacts archived, 5.4 s total.*
 
 ![Failed stage](screenshots/09-jenkins-failed-stage.png)
+
 *Build #3: faulty commit caught in the Deploy stage, previous release restored automatically.*
 
 ![Build history](screenshots/10-jenkins-build-history.png)
+
 *Initial deploy, update via commit, caught failure, fix via revert, manual rollback.*
 
 ![Green pipeline](screenshots/13-jenkins-pipeline-green.png)
+
 *Final pipeline: Lint → Test → Build → Archive → Deploy, status of all releases in the post actions.*
 
 ### Log scanner (Python)
 
 ![Log scanner alert](screenshots/11-log-scanner-alert.png)
+
 *Scan of the real production logs: the failed deployment raises an ALERT (e-mail shown as dry run).*
 
 ![systemd timer and journal](screenshots/12-systemd-log-scanner.png)
+
 *Scanner as systemd timer: first run alerts on the incident, the next run only checks new lines.*
 
 ---
