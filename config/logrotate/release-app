@@ -1,0 +1,12 @@
+# /etc/logrotate.d/release-app - rotate the deployment log weekly, keep 8 weeks
+/var/log/release-app/*.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    # the directory belongs to jenkins -> rotate as jenkins, recreate the file for jenkins
+    su jenkins jenkins
+    create 0644 jenkins jenkins
+}

@@ -1,0 +1,42 @@
+# /etc/systemd/system/log-scanner.service
+# Runs log_scanner.py once; started every 5 minutes by log-scanner.timer.
+[Unit]
+Description=Scan release-app logs for error patterns (log_scanner.py)
+Documentation=https://github.com/rkraus-tech/release-ops-pipeline
+
+[Service]
+Type=oneshot
+
+# Least privilege: throw-away system user created per run, plus read access
+# to the nginx logs via group "adm". No root, no login, no home directory.
+DynamicUser=yes
+SupplementaryGroups=adm
+
+# Writable /var/lib/log-scanner for the state file (created by systemd)
+StateDirectory=log-scanner
+
+# Optional SMTP settings for e-mail alerts (file may be absent)
+EnvironmentFile=-/etc/log-scanner/smtp.env
+
+ExecStart=/usr/bin/python3 /opt/log-scanner/log_scanner.py \
+    --config /opt/log-scanner/rules.toml \
+    --state /var/lib/log-scanner/state.json \
+    --quiet \
+    /var/log/release-app/deploy.log \
+    /var/log/nginx/release-app.access.log \
+    /var/log/nginx/release-app.error.log
+
+# Exit codes: 0 OK, 1 WARNING -> unit succeeds
+#             2 ALERT, 3 UNKNOWN -> unit is marked "failed" (visible in systemctl --failed)
+SuccessExitStatus=1
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
