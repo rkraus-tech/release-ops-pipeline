@@ -1,0 +1,111 @@
+// Jenkinsfile - CI/CD pipeline for release-app on ops01
+//
+// ACTION = deploy   : lint -> build -> archive -> deploy (with health check + auto rollback)
+// ACTION = rollback : lint -> switch back to an older release
+//
+// Exit codes of scripts/deploy.sh:
+//   0 success | 1 error before any change | 2 failed, rolled back | 3 CRITICAL
+
+// Translate the exit code of deploy.sh into a clear Jenkins result
+def handleDeployResult(int rc, String what) {
+    if (rc == 0) {
+        return
+    }
+    if (rc == 2) {
+        currentBuild.description = "${what} FAILED - automatically rolled back"
+        error("${what}: health check failed, previous release was restored automatically (exit 2)")
+    }
+    if (rc == 3) {
+        currentBuild.description = "${what} CRITICAL - manual action required"
+        error("${what}: CRITICAL - health check and rollback failed (exit 3)")
+    }
+    currentBuild.description = "${what} aborted - nothing changed"
+    error("${what}: aborted before any change (exit ${rc})")
+}
+
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()                       // one pipeline run at a time
+        timestamps()                                    // timestamp on every console line
+        timeout(time: 15, unit: 'MINUTES')              // never hang forever
+        buildDiscarder(logRotator(numToKeepStr: '30'))  // keep the last 30 builds
+    }
+
+    triggers {
+        // GitHub cannot reach the home lab (no public webhook endpoint),
+        // so Jenkins checks the repository for new commits every ~2 minutes.
+        pollSCM('H/2 * * * *')
+    }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['deploy', 'rollback'],
+               description: 'deploy = build and deploy the current commit | rollback = switch back to an older release')
+        string(name: 'ROLLBACK_TO', defaultValue: '', trim: true,
+               description: 'Only for rollback: release id, e.g. 1.0.0-b4 (empty = previous release)')
+    }
+
+    stages {
+        stage('Lint') {
+            steps {
+                sh '''
+                    bash -n scripts/*.sh
+                    shellcheck scripts/*.sh
+                '''
+            }
+        }
+
+        stage('Build') {
+            when { expression { params.ACTION == 'deploy' } }
+            steps {
+                sh 'rm -rf dist'
+                script {
+                    // build.sh prints the artifact path as the last line on stdout
+                    env.ARTIFACT   = sh(script: 'scripts/build.sh "$BUILD_NUMBER"', returnStdout: true).trim()
+                    env.RELEASE_ID = env.ARTIFACT.tokenize('/').last()
+                                         .replace('release-app-', '')
+                                         .replace('.tar.gz', '')
+                }
+                echo "Built release ${env.RELEASE_ID}"
+            }
+        }
+
+        stage('Archive') {
+            when { expression { params.ACTION == 'deploy' } }
+            steps {
+                archiveArtifacts artifacts: 'dist/*.tar.gz, dist/*.sha256', fingerprint: true
+            }
+        }
+
+        stage('Deploy') {
+            when { expression { params.ACTION == 'deploy' } }
+            steps {
+                script {
+                    def rc = sh(script: 'scripts/deploy.sh deploy "$ARTIFACT"', returnStatus: true)
+                    handleDeployResult(rc, "Deploy ${env.RELEASE_ID}")
+                    currentBuild.description = "${env.RELEASE_ID} live"
+                }
+            }
+        }
+
+        stage('Rollback') {
+            when { expression { params.ACTION == 'rollback' } }
+            steps {
+                script {
+                    def target = params.ROLLBACK_TO ?: 'previous release'
+                    def rc = sh(script: 'scripts/deploy.sh rollback "$ROLLBACK_TO"', returnStatus: true)
+                    handleDeployResult(rc, "Rollback to ${target}")
+                    currentBuild.description = "Rollback to ${target} done"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Show what is live now - visible at the end of every console log
+            sh 'scripts/deploy.sh status || true'
+        }
+    }
+}
