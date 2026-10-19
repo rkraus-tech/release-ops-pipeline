@@ -1,0 +1,2 @@
+2026/10/19 12:04:23 [error] 2211#2211: *1 "/opt/release-app/current/index.html" is not found (2: No such file or directory), client: 127.0.0.1, server: ops01.home.arpa, request: "GET / HTTP/1.1", host: "localhost"
+2026/10/19 12:16:02 [crit] 2211#2211: *7 open() "/opt/release-app/current/health.json" failed (13: Permission denied), client: 127.0.0.1, server: ops01.home.arpa, request: "GET /health HTTP/1.1", host: "localhost"

@@ -1,0 +1,92 @@
+# rules.toml - error patterns for log_scanner.py
+#
+# Each rule:
+#   name      unique short name (shown in alerts)
+#   pattern   Python regular expression, matched against every log line
+#   severity  INFO | WARNING | CRITICAL
+#   files     optional list of glob patterns - rule only applies to matching file names
+#
+# Alerting policy (see [alerting]):
+#   - any CRITICAL match                          -> alert
+#   - WARNING matches >= warning_threshold        -> alert
+
+[alerting]
+warning_threshold = 3
+
+# --- Deployment log (/var/log/release-app/deploy.log) ----------------------
+
+[[rules]]
+name     = "deploy-failed"
+pattern  = 'DEPLOY FAILED'
+severity = "CRITICAL"
+files    = ["*deploy*.log"]
+
+[[rules]]
+name     = "deploy-critical"
+pattern  = '\bCRITICAL:'
+severity = "CRITICAL"
+files    = ["*deploy*.log"]
+
+[[rules]]
+name     = "checksum-mismatch"
+pattern  = 'checksum mismatch'
+severity = "CRITICAL"
+files    = ["*deploy*.log"]
+
+[[rules]]
+name     = "health-check-retry"
+pattern  = 'health check attempt \d+/\d+ failed'
+severity = "WARNING"
+files    = ["*deploy*.log"]
+
+[[rules]]
+name     = "history-not-recorded"
+pattern  = 'could not record result'
+severity = "WARNING"
+files    = ["*deploy*.log"]
+
+# --- nginx error log --------------------------------------------------------
+
+[[rules]]
+name     = "nginx-crit"
+pattern  = '\[(crit|alert|emerg)\]'
+severity = "CRITICAL"
+files    = ["*error*.log"]
+
+[[rules]]
+name     = "nginx-permission-denied"
+pattern  = 'Permission denied'
+severity = "CRITICAL"
+files    = ["*error*.log"]
+
+[[rules]]
+name     = "nginx-error"
+pattern  = '\[error\]'
+severity = "WARNING"
+files    = ["*error*.log"]
+
+# --- nginx access log -------------------------------------------------------
+
+[[rules]]
+name     = "http-5xx"
+pattern  = '" 5\d\d '
+severity = "WARNING"
+files    = ["*access*.log"]
+
+[[rules]]
+name     = "health-endpoint-not-ok"
+pattern  = '"GET /health HTTP/[\d.]+" (?!200)\d{3} '
+severity = "WARNING"
+files    = ["*access*.log"]
+
+# --- Generic (any file) -----------------------------------------------------
+
+[[rules]]
+name     = "python-traceback"
+pattern  = 'Traceback \(most recent call last\)'
+severity = "CRITICAL"
+
+[[rules]]
+name     = "out-of-memory"
+pattern  = '(?i)out of memory|OutOfMemoryError'
+severity = "CRITICAL"

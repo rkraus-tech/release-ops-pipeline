@@ -1,0 +1,20 @@
+2026-10-19T13:01:08+02:00 [deploy] INFO deploy 1.1.0-b2 requested (current: 1.0.0-b1)
+2026-10-19T13:01:08+02:00 [deploy] INFO checksum OK
+2026-10-19T13:01:08+02:00 [deploy] INFO unpacked to releases/1.1.0-b2
+2026-10-19T13:01:08+02:00 [deploy] INFO current -> releases/1.1.0-b2
+2026-10-19T13:01:09+02:00 [deploy] INFO health check passed for 1.1.0-b2 (attempt 1/5)
+2026-10-19T13:01:09+02:00 [deploy] INFO DEPLOY SUCCESS 1.1.0-b2 in 1s
+2026-10-19T13:07:20+02:00 [deploy] INFO deploy 1.1.0-b3 requested (current: 1.1.0-b2)
+2026-10-19T13:07:20+02:00 [deploy] INFO checksum OK
+2026-10-19T13:07:20+02:00 [deploy] INFO unpacked to releases/1.1.0-b3
+2026-10-19T13:07:20+02:00 [deploy] INFO current -> releases/1.1.0-b3
+2026-10-19T13:07:20+02:00 [deploy] WARN health check attempt 1/5 failed for 1.1.0-b3
+2026-10-19T13:07:22+02:00 [deploy] WARN health check attempt 2/5 failed for 1.1.0-b3
+2026-10-19T13:07:24+02:00 [deploy] WARN health check attempt 3/5 failed for 1.1.0-b3
+2026-10-19T13:07:26+02:00 [deploy] WARN health check attempt 4/5 failed for 1.1.0-b3
+2026-10-19T13:07:28+02:00 [deploy] WARN health check attempt 5/5 failed for 1.1.0-b3
+2026-10-19T13:07:30+02:00 [deploy] ERROR health check FAILED for 1.1.0-b3 after 5 attempts
+2026-10-19T13:07:30+02:00 [deploy] WARN rolling back to 1.1.0-b2
+2026-10-19T13:07:30+02:00 [deploy] INFO current -> releases/1.1.0-b2
+2026-10-19T13:07:30+02:00 [deploy] INFO health check passed for 1.1.0-b2 (attempt 1/5)
+2026-10-19T13:07:30+02:00 [deploy] ERROR DEPLOY FAILED 1.1.0-b3 - rolled back to 1.1.0-b2 in 10s
